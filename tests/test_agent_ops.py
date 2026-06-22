@@ -1,45 +1,55 @@
-import json
-from src.agent_ops import Agent, AgentOps
+from agent_ops import AgentOps, ScalingPolicy
 
-def test_deploy_agent():
+def test_define_scaling_policy():
     agent_ops = AgentOps()
-    agent = Agent("test_agent", "dev")
-    result = agent_ops.deploy_agent(agent)
-    assert result == "Agent test_agent deployed to dev"
-    assert len(agent_ops.get_deployed_agents()) == 1
+    policy_id = "test_policy"
+    policy = ScalingPolicy(min_agents=1, max_agents=10, cpu_threshold=0.5)
+    agent_ops.define_scaling_policy(policy_id, policy)
+    assert agent_ops.scaling_policies[policy_id] == policy
 
-def test_get_deployed_agents():
+def test_update_load_tags():
     agent_ops = AgentOps()
-    agent1 = Agent("test_agent1", "dev")
-    agent2 = Agent("test_agent2", "prod")
-    agent_ops.deploy_agent(agent1)
-    agent_ops.deploy_agent(agent2)
-    assert len(agent_ops.get_deployed_agents("dev")) == 1
-    assert len(agent_ops.get_deployed_agents("prod")) == 1
-    assert len(agent_ops.get_deployed_agents()) == 2
+    load_tags = {"tag1": 10, "tag2": 20}
+    agent_ops.update_load_tags(load_tags)
+    assert agent_ops.load_tags == load_tags
 
-def test_save_to_json():
+def test_spawn_agents():
     agent_ops = AgentOps()
-    agent1 = Agent("test_agent1", "dev")
-    agent2 = Agent("test_agent2", "prod")
-    agent_ops.deploy_agent(agent1)
-    agent_ops.deploy_agent(agent2)
-    agent_ops.save_to_json("agents.json")
-    with open("agents.json", "r") as f:
-        data = json.load(f)
-    assert len(data) == 2
-    assert data[0]["name"] == "test_agent1"
-    assert data[1]["name"] == "test_agent2"
+    policy_id = "test_policy"
+    policy = ScalingPolicy(min_agents=1, max_agents=10, cpu_threshold=0.5)
+    agent_ops.define_scaling_policy(policy_id, policy)
+    new_agents = agent_ops.spawn_agents(policy_id)
+    assert new_agents == 1
 
-def test_load_from_json():
+def test_terminate_agents():
     agent_ops = AgentOps()
-    agent1 = Agent("test_agent1", "dev")
-    agent2 = Agent("test_agent2", "prod")
-    agent_ops.deploy_agent(agent1)
-    agent_ops.deploy_agent(agent2)
-    agent_ops.save_to_json("agents.json")
+    policy_id = "test_policy"
+    policy = ScalingPolicy(min_agents=1, max_agents=10, cpu_threshold=0.5)
+    agent_ops.define_scaling_policy(policy_id, policy)
+    agent_ops.agents[policy_id] = 5
+    new_agents = agent_ops.terminate_agents(policy_id)
+    assert new_agents == 4
+
+def test_get_agents():
     agent_ops = AgentOps()
-    agent_ops.load_from_json("agents.json")
-    assert len(agent_ops.get_deployed_agents()) == 2
-    assert agent_ops.get_deployed_agents()[0].name == "test_agent1"
-    assert agent_ops.get_deployed_agents()[1].name == "test_agent2"
+    policy_id = "test_policy"
+    policy = ScalingPolicy(min_agents=1, max_agents=10, cpu_threshold=0.5)
+    agent_ops.define_scaling_policy(policy_id, policy)
+    agent_ops.agents[policy_id] = 5
+    assert agent_ops.get_agents(policy_id) == 5
+
+def test_log_scaling_action():
+    agent_ops = AgentOps()
+    policy_id = "test_policy"
+    action = "spawn"
+    agent_ops.log_scaling_action(policy_id, action)
+    # No assertion, just checking that it runs without error
+
+def test_respect_resource_limits():
+    agent_ops = AgentOps()
+    policy_id = "test_policy"
+    policy = ScalingPolicy(min_agents=1, max_agents=10, cpu_threshold=0.5)
+    agent_ops.define_scaling_policy(policy_id, policy)
+    agent_ops.agents[policy_id] = 15
+    new_agents = agent_ops.respect_resource_limits(policy_id)
+    assert new_agents == 10
